@@ -1,0 +1,29 @@
+# LWD template: replace every REPLACE_* value before uploading.
+# Simpler portal route: Workflows -> HPC Jobscript (see README).
+# This YAML route requires a SECOND dataset containing run_sum.sh at its root.
+id: benchmark_sum
+desc: Stage CSV, clone public analysis code and save the sum
+project_shortname: REPLACE_PROJECT_SHORTNAME
+jobs:
+  sum_dataset:
+    requirements:
+      command_template_name: JobScript
+      node_type_name: REPLACE_CPU_PARTITION
+      locations:
+        - location_name: REPLACE_HPC_LOCATION
+          location_resource: REPLACE_COMPUTE_RESOURCE
+      walltime_limit: 600
+      max_cores: 1
+      template_parameters:
+        fileName: scripts/run_sum.sh
+    data_inputs:
+      - source: ddi://REPLACE_CSV_DATASET_UUID
+        target: input
+      - source: ddi://REPLACE_SCRIPT_DATASET_UUID
+        target: scripts
+    data_outputs:
+      - source: output
+        target: ddi://~
+        metadata:
+          title: Benchmark sum results
+          access: project

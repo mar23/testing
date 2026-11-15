@@ -1,0 +1,44 @@
+{
+  "id": "benchmark_sum",
+  "description": "Stage benchmark_dataset.csv, clone github.com/mar23/testing and run sum_dataset.py",
+  "placement": {
+    "project": "testproject",
+    "location": "Karolina",
+    "resource": "ATR-26-1",
+    "nodeType": "qcpu_exp",
+    "template": "JobScript",
+    "cores": 128,
+    "walltimeSeconds": 600,
+    "scriptParameter": "fileName"
+  },
+  "script": {
+    "id": "16950574-e142-11f1-8c76-421fe4d7e0dd",
+    "location": "iRODS IT4I",
+    "resource": "ATR-26-1",
+    "fileName": "run_sum.sh"
+  },
+  "inputs": [
+    {
+      "dataset": {
+        "id": "1155d39a-e142-11f1-889f-421fe4d7e0dd",
+        "location": "iRODS IT4I",
+        "resource": "ATR-26-1",
+        "fileName": ""
+      },
+      "path": "/",
+      "target": "/input/Benchmark_input"
+    }
+  ],
+  "outputs": [
+    {
+      "source": "/output",
+      "location": "iRODS IT4I",
+      "resource": "ATR-26-1",
+      "access": "project",
+      "title": "Benchmark sum results",
+      "dataset": null,
+      "metadata": null,
+      "dataCite": null
+    }
+  ]
+}

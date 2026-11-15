@@ -1,0 +1,330 @@
+<title>Benchmark Sum na Karolině</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one column control-room report — summary strip, stage flow, task timeline, cluster output, run comparison. */
+:root {
+  --bg: #f4f6f8; --surface: #ffffff; --fg: #15202b; --muted: #5a6774; --line: #dbe1e7;
+  --accent: #2557c9; --accent-soft: #e3eafb;
+  --ok: #1d8556; --ok-soft: #dff3e9; --skip: #98a3ae; --run: #b97708; --run-soft: #fbefd6; --fail: #c03a3a; --fail-soft: #f9e1e1;
+  --term-bg: #121a22; --term-fg: #d5dee6; --term-dim: #7f8f9e;
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1318; --surface: #151c23; --fg: #e3e9ef; --muted: #93a1ae; --line: #26313b;
+  --accent: #7ea3ff; --accent-soft: #1c2a47;
+  --ok: #4cc08b; --ok-soft: #15302a; --skip: #66727e; --run: #f0b33f; --run-soft: #3a2d12; --fail: #f07474; --fail-soft: #3b1d1d;
+  --term-bg: #0a0f14; --term-fg: #d5dee6; --term-dim: #73838f; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0e1318; --surface: #151c23; --fg: #e3e9ef; --muted: #93a1ae; --line: #26313b;
+  --accent: #7ea3ff; --accent-soft: #1c2a47;
+  --ok: #4cc08b; --ok-soft: #15302a; --skip: #66727e; --run: #f0b33f; --run-soft: #3a2d12; --fail: #f07474; --fail-soft: #3b1d1d;
+  --term-bg: #0a0f14; --term-fg: #d5dee6; --term-dim: #73838f; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.55 var(--font-body); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 32px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; letter-spacing: 0.005em; }
+h1 { font-size: clamp(28px, 4.5vw, 40px); font-weight: 700; line-height: 1.1; }
+h2 { font-size: 22px; font-weight: 600; }
+h3 { font-size: 17px; font-weight: 600; }
+p { margin: 0; }
+.mono { font-family: var(--font-mono); font-size: 0.86em; }
+.eyebrow { font: 500 12px/1.4 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.lede { color: var(--muted); max-width: 68ch; }
+section { display: grid; gap: 16px; min-width: 0; }
+.section-head { display: grid; gap: 4px; }
+
+header { display: grid; gap: 14px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.tab { font: 500 13px/1 var(--font-body); color: var(--fg); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 6px; padding: 9px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.tab[aria-selected="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--skip); flex: none; }
+.dot.succeeded { background: var(--ok); } .dot.failed { background: var(--fail); } .dot.running, .dot.queued { background: var(--run); }
+
+.strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 8px; }
+.stat { padding: 14px 16px; display: grid; gap: 4px; border-right: 1px solid var(--line); min-width: 0; }
+.stat:last-child { border-right: 0; }
+.stat .v { font: 600 20px/1.2 var(--font-display); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.stat .k { font-size: 12px; color: var(--muted); }
+.pill { display: inline-flex; align-items: center; gap: 6px; font: 600 12px/1 var(--font-mono); text-transform: uppercase;
+  letter-spacing: 0.05em; padding: 5px 8px; border-radius: 4px; background: var(--ok-soft); color: var(--ok); width: fit-content; }
+.pill.failed { background: var(--fail-soft); color: var(--fail); } .pill.running, .pill.queued { background: var(--run-soft); color: var(--run); }
+
+/* stage flow */
+.flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; align-items: stretch; }
+.stage { position: relative; background: var(--surface); border: 1px solid var(--line); border-top: 3px solid var(--skip);
+  border-radius: 6px; padding: 14px 14px 12px; display: grid; gap: 8px; align-content: start; margin-right: 22px; min-width: 0; }
+.stage:last-child { margin-right: 0; }
+.stage:not(:last-child)::after { content: ""; position: absolute; right: -19px; top: 50%; width: 14px; height: 14px;
+  border-top: 2px solid var(--muted); border-right: 2px solid var(--muted); transform: translateY(-50%) rotate(45deg); }
+.stage.succeeded { border-top-color: var(--ok); } .stage.failed { border-top-color: var(--fail); } .stage.running { border-top-color: var(--run); }
+.stage.hpc { background: var(--accent-soft); border-color: var(--accent); border-top-color: var(--accent); }
+.stage .where { font: 500 11px/1.3 var(--font-mono); letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.stage p { font-size: 13.5px; color: var(--muted); }
+.stage ul { margin: 0; padding-left: 16px; font-size: 13px; display: grid; gap: 2px; }
+.stage .meta { font: 500 12px/1.3 var(--font-mono); color: var(--fg); font-variant-numeric: tabular-nums; border-top: 1px dashed var(--line); padding-top: 8px; }
+.steps { list-style: none; padding: 0 !important; counter-reset: s; }
+.steps li { counter-increment: s; display: grid; grid-template-columns: 18px 1fr; gap: 6px; }
+.steps li::before { content: counter(s); font: 600 11px/18px var(--font-mono); color: var(--accent); }
+.artifacts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.artifact { border: 1px dashed var(--line); border-radius: 6px; padding: 10px 12px; display: grid; gap: 2px; font-size: 13px; min-width: 0; }
+.artifact b { font-weight: 600; }
+.artifact .mono { color: var(--muted); overflow-wrap: anywhere; }
+
+/* timeline */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; min-width: 0; }
+.scroll { overflow-x: auto; }
+.gantt { display: block; min-width: 720px; width: 100%; }
+.gantt text { font-family: var(--font-body); font-size: 12px; fill: var(--fg); }
+.gantt .axis text { fill: var(--muted); font-family: var(--font-mono); font-size: 11px; }
+.gantt .grid line { stroke: var(--line); stroke-width: 1; }
+.gantt .group text { font-family: var(--font-mono); font-size: 11px; fill: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; }
+.gantt .band { fill: var(--bg); }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12.5px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 18px; height: 8px; border-radius: 2px; display: inline-block; }
+.note { font-size: 13px; color: var(--muted); max-width: 80ch; }
+
+/* terminal */
+.cols { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; }
+.term { background: var(--term-bg); color: var(--term-fg); border-radius: 8px; padding: 14px 16px; font: 12.5px/1.6 var(--font-mono);
+  overflow-x: auto; white-space: pre; margin: 0; }
+.term .h { color: var(--term-dim); }
+.term .hl { color: #8fe3b5; }
+.files { display: grid; gap: 10px; align-content: start; }
+.file { display: grid; gap: 4px; }
+.file .name { font: 500 13px var(--font-mono); }
+.file pre { margin: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px;
+  font: 12.5px/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font: 500 11.5px var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+tr.sel td { background: var(--accent-soft); }
+
+@media (max-width: 900px) {
+  .flow { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  .stage { margin-right: 0; }
+  .stage:not(:last-child)::after { right: auto; left: 50%; top: auto; bottom: -19px; transform: translateX(-50%) rotate(135deg); }
+  .cols, .artifacts { grid-template-columns: minmax(0, 1fr); }
+  .stat { border-right: 0; border-bottom: 1px solid var(--line); }
+}
+@media (prefers-reduced-motion: no-preference) { .bar { transition: opacity .2s; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">LEXIS · testproject · Karolina qcpu_exp · ATR-26-1</div>
+    <h1>Benchmark Sum na Karolině</h1>
+    <p class="lede">Workflow <span class="mono">testproject_benchmark_sum</span> přenese CSV z úložiště IT4I na Karolinu, tam stáhne kód z <span class="mono">github.com/mar23/testing</span>, sečte čísla skriptem <span class="mono">sum_dataset.py</span> a výsledek uloží zpět jako dataset.</p>
+    <div class="tabs" role="tablist" id="tabs" aria-label="Běh workflow"></div>
+  </header>
+
+  <div class="strip" id="strip"></div>
+
+  <section>
+    <div class="section-head"><div class="eyebrow">Tok workflow</div><h2>Kudy jdou data a kód</h2></div>
+    <div class="artifacts">
+      <div class="artifact"><span class="eyebrow">Vstupy (úložiště iRODS IT4I)</span><b>Benchmark input</b><span class="mono">benchmark_dataset.csv · 1155d39a…</span><b>benchmark_sum jobscript</b><span class="mono">run_sum.sh · 16950574…</span></div>
+      <div class="artifact"><span class="eyebrow">Výstup (úložiště iRODS IT4I)</span><b>Benchmark sum results</b><span class="mono" id="outId">result.txt, commit.txt</span></div>
+    </div>
+    <div class="flow" id="flow"></div>
+  </section>
+
+  <section>
+    <div class="section-head"><div class="eyebrow">Časová osa</div><h2>Úlohy běhu v čase</h2>
+      <p class="note">Každý řádek je jedna úloha v Airflow, osa ukazuje sekundy od startu běhu. Úlohy, které čekají na job nebo přenos, LEXIS zaznamenává jen při poslední kontrole, proto je modrý pruh „Job na Karolině“ dopočítaný: od odeslání jobu do potvrzení jeho dokončení (fronta i výpočet).</p></div>
+    <div class="panel">
+      <div class="legend" style="margin-bottom:10px">
+        <span><i class="sw" style="background:var(--accent)"></i>Job na Karolině</span>
+        <span><i class="sw" style="background:var(--ok)"></i>Dokončeno</span>
+        <span><i class="sw" style="background:var(--run)"></i>Běží</span>
+        <span><i class="sw" style="background:var(--fail)"></i>Selhalo</span>
+        <span><i class="sw" style="background:var(--skip)"></i>Přeskočeno (nepoužitá větev)</span>
+      </div>
+      <div class="scroll"><svg class="gantt" id="gantt" role="img" aria-label="Časová osa úloh běhu"></svg></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><div class="eyebrow">Výstup z clusteru</div><h2 id="termTitle">Co job vypsal na Karolině</h2></div>
+    <div class="cols">
+      <pre class="term" id="term"></pre>
+      <div class="files panel" id="files"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><div class="eyebrow">Porovnání</div><h2>Všechny běhy</h2></div>
+    <div class="panel scroll"><table id="runs"><thead><tr><th>Běh</th><th>Start (UTC)</th><th>Stav</th><th>Celkem</th><th>Job na Karolině</th><th>HEAppE job</th><th>Součet</th></tr></thead><tbody></tbody></table></div>
+  </section>
+</div>
+
+<script type="application/json" id="data">__DATA__</script>
+<script>
+const DATA = JSON.parse(document.getElementById('data').textContent);
+const NS = 'http://www.w3.org/2000/svg';
+const LABELS = {
+  'lexis_aai_task': 'Ověření přihlášení (AAI)', 'job.xcom_storage': 'Uložení parametrů jobu', 'job.select_operator': 'Výběr clusteru a fronty',
+  'job.heappe_session': 'Otevření HEAppE session', 'job.heappe_prepare_job': 'Příprava jobu v HEAppE',
+  'job.input_transfers.input_transfer_staging_0': 'Přenos vstupu 1: požadavek', 'job.input_transfers.input_transfer_wait_0': 'Přenos vstupu 1: dokončení',
+  'job.input_transfers.input_transfer_staging_1': 'Přenos vstupu 2: požadavek', 'job.input_transfers.input_transfer_wait_1': 'Přenos vstupu 2: dokončení',
+  'job.heappe_submit_job_branch': 'Rozhodnutí: odeslat job', 'job.heappe_no_submit_job': 'Neodesílat (nepoužitá větev)',
+  'job.heappe_submit_job': 'Odeslání jobu do fronty', 'job.heappe_job_wait': 'Čekání na dokončení jobu', 'job.heappe_submit_job_join': 'Spojení větví',
+  'job.output_transfers.output_transfer_staging_0': 'Přenos výstupu: požadavek', 'job.output_transfers.output_transfer_wait_0': 'Přenos výstupu: dokončení',
+  'job.heappe_job_delete_branch': 'Rozhodnutí: uklidit job', 'job.heappe_no_job_delete': 'Neuklízet (nepoužitá větev)',
+  'job.heappe_job_delete': 'Smazání pracovního adresáře jobu', 'job.heappe_job_delete_join': 'Spojení větví',
+  'job.heappe_session_keeper_stop': 'Ukončení HEAppE session', 'job.heappe_session_keeper': 'Hlídání HEAppE session',
+  'job.check_status': 'Kontrola stavu jobu', 'lexis_aai_stop_task': 'Ukončení přihlášení', 'finish': 'Dokončení běhu', 'ref_token_keeper': 'Obnova přístupového tokenu',
+};
+const STAGES = [
+  { key: 'prep', name: 'Příprava', where: 'LEXIS · Airflow', text: 'Ověří přihlášení, vybere Karolinu a frontu qcpu_exp a otevře spojení do HEAppE (služba, která zakládá joby na clusterech IT4I).',
+    match: id => ['lexis_aai_task','job.xcom_storage','job.select_operator','job.heappe_session','job.heappe_prepare_job'].includes(id) },
+  { key: 'in', name: 'Přenos vstupů', where: 'iRODS IT4I → Karolina', text: 'Zkopíruje oba datasety do pracovního adresáře jobu.',
+    items: ['benchmark_dataset.csv → input/Benchmark_input/', 'run_sum.sh → /'], match: id => id.includes('input_transfers') },
+  { key: 'hpc', name: 'Job na Karolině', where: 'Karolina · qcpu_exp · 1 uzel', hpc: true,
+    steps: ['najde CSV v input/', 'git clone mar23/testing', 'checkout ae4f9b3', 'python3 src/sum_dataset.py', 'output/result.txt + commit.txt'],
+    match: id => /heappe_(submit_job|no_submit_job|job_wait|submit_job_branch|submit_job_join)$/.test(id) },
+  { key: 'out', name: 'Uložení výsledku', where: 'Karolina → iRODS IT4I', text: 'Složku output/ zaregistruje jako nový dataset s přístupem pro projekt.',
+    items: ['Benchmark sum results'], match: id => id.includes('output_transfers') },
+  { key: 'clean', name: 'Úklid', where: 'LEXIS · HEAppE', text: 'Smaže pracovní adresář jobu, zkontroluje stav a ukončí session.', match: () => true },
+];
+const stageOf = id => STAGES.find(s => s.match(id)).key;
+const t = s => s ? new Date(s).getTime() : null;
+const fmt = sec => sec == null ? '–' : sec < 60 ? `${sec.toFixed(0)} s` : `${Math.floor(sec / 60)} min ${String(Math.round(sec % 60)).padStart(2, '0')} s`;
+const el = (tag, attrs = {}, text) => { const e = document.createElement(tag); Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v)); if (text != null) e.textContent = text; return e; };
+const svg = (tag, attrs = {}, text) => { const e = document.createElementNS(NS, tag); Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v)); if (text != null) e.textContent = text; return e; };
+const STATE_CZ = { succeeded: 'Dokončeno', failed: 'Selhalo', running: 'Běží', queued: 'Ve frontě', skipped: 'Přeskočeno' };
+
+function analyse(r) {
+  const t0 = t(r.run.started), tEnd = t(r.run.ended) ?? Date.now();
+  const tasks = r.tasks.filter(x => x.started).map(x => ({ ...x, s: (t(x.started) - t0) / 1000, e: ((t(x.ended) ?? Date.now()) - t0) / 1000, stage: stageOf(x.id) }));
+  const submit = tasks.find(x => x.id === 'job.heappe_submit_job'), wait = tasks.find(x => x.id === 'job.heappe_job_wait');
+  const job = submit ? { s: submit.e, e: wait && wait.state === 'succeeded' ? wait.e : (tEnd - t0) / 1000, done: wait && wait.state === 'succeeded' } : null;
+  const hpc = r.hpc || '';
+  const jobId = (hpc.match(/HEAppE job (\d+)/) || [])[1] || '–';
+  const sum = (hpc.match(/Celkový součet:\s*([\d.]+)/) || [])[1] || '–';
+  const count = (hpc.match(/celkem (\d+) čísel/) || [])[1];
+  const commit = (hpc.match(/at ([0-9a-f]{7,40})/) || [])[1] || '';
+  return { t0, total: (tEnd - t0) / 1000, tasks, job, jobId, sum, count, commit };
+}
+const RUNS = DATA.runs.map(r => ({ r, a: analyse(r) }));
+let current = RUNS.length - 1;
+
+function renderTabs() {
+  const box = document.getElementById('tabs'); box.replaceChildren();
+  RUNS.forEach(({ r, a }, i) => {
+    const b = el('button', { class: 'tab', role: 'tab', id: `tab${i}`, 'aria-selected': String(i === current) });
+    b.append(el('span', { class: `dot ${r.run.state}` }), `Běh ${i + 1} · ${new Date(a.t0).toISOString().slice(11, 16)} UTC`);
+    b.addEventListener('click', () => { current = i; render(); });
+    box.append(b);
+  });
+}
+function renderStrip({ r, a }) {
+  const s = document.getElementById('strip'); s.replaceChildren();
+  const stat = (k, v, cls) => { const d = el('div', { class: 'stat' }); const vv = el('div', { class: cls || 'v' }); if (typeof v === 'string') vv.textContent = v; else vv.append(v); d.append(vv, el('div', { class: 'k' }, k)); s.append(d); };
+  const pill = el('span', { class: `pill ${r.run.state}` }, STATE_CZ[r.run.state] || r.run.state);
+  stat('Stav běhu', pill, 'v');
+  stat('Celková doba běhu', fmt(a.total));
+  stat('Job na Karolině (fronta + výpočet)', a.job ? fmt(a.job.e - a.job.s) : '–');
+  stat(a.count ? `Součet ${a.count} čísel z CSV` : 'Součet z CSV', a.sum);
+  stat('Commit z GitHubu', a.commit ? a.commit.slice(0, 7) : '–');
+}
+function renderFlow({ a }) {
+  const f = document.getElementById('flow'); f.replaceChildren();
+  STAGES.forEach(st => {
+    const ts = a.tasks.filter(x => x.stage === st.key);
+    const state = ts.some(x => x.state === 'failed') ? 'failed' : ts.some(x => ['running', 'queued', 'up_for_reschedule', 'scheduled'].includes(x.state)) ? 'running' : ts.length ? 'succeeded' : '';
+    const card = el('div', { class: `stage ${state} ${st.hpc ? 'hpc' : ''}` });
+    card.append(el('div', { class: 'where' }, st.where), el('h3', {}, st.name));
+    if (st.text) card.append(el('p', {}, st.text));
+    if (st.items) { const ul = el('ul'); st.items.forEach(i => ul.append(el('li', { class: 'mono' }, i))); card.append(ul); }
+    if (st.steps) { card.append(el('p', {}, 'run_sum.sh na výpočetním uzlu:')); const ol = el('ul', { class: 'steps' }); st.steps.forEach(i => ol.append(el('li', { class: 'mono' }, i))); card.append(ol); }
+    let span = ts.length ? Math.max(...ts.map(x => x.e)) - Math.min(...ts.map(x => x.s)) : null;
+    if (st.hpc && a.job) span = a.job.e - a.job.s;
+    card.append(el('div', { class: 'meta' }, ts.length ? `${ts.length} úloh · ${fmt(span)}${st.hpc && a.jobId !== '–' ? ` · job ${a.jobId}` : ''}` : 'zatím nezačalo'));
+    f.append(card);
+  });
+}
+function renderGantt({ a }) {
+  const g = document.getElementById('gantt'); g.replaceChildren();
+  const labelW = 250, right = 24, rowH = 22, top = 28, W = 1060;
+  const maxT = Math.max(a.total, ...a.tasks.map(x => x.e)) * 1.02;
+  const step = maxT > 300 ? 60 : maxT > 120 ? 20 : 10;
+  const x = sec => labelW + (sec / maxT) * (W - labelW - right);
+  const rows = [];
+  STAGES.forEach(st => {
+    const ts = a.tasks.filter(t => t.stage === st.key).sort((p, q) => p.s - q.s);
+    if (!ts.length) return;
+    rows.push({ group: st.name });
+    if (st.hpc && a.job) rows.push({ job: true, s: a.job.s, e: a.job.e, label: `Job ${a.jobId} na Karolině` });
+    ts.forEach(t => rows.push(t));
+  });
+  const H = top + rows.length * rowH + 8;
+  g.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const grid = svg('g', { class: 'grid' }), axis = svg('g', { class: 'axis' });
+  for (let s = 0; s <= maxT; s += step) {
+    grid.append(svg('line', { x1: x(s), x2: x(s), y1: top - 6, y2: H - 4 }));
+    axis.append(svg('text', { x: x(s), y: 14, 'text-anchor': 'middle' }, `${s} s`));
+  }
+  g.append(grid, axis);
+  rows.forEach((row, i) => {
+    const y = top + i * rowH;
+    if (row.group) {
+      const gg = svg('g', { class: 'group' });
+      gg.append(svg('rect', { class: 'band', x: 0, y: y + 1, width: W, height: rowH - 2, rx: 3 }), svg('text', { x: 8, y: y + 15 }, row.group));
+      g.append(gg); return;
+    }
+    const color = row.job ? 'var(--accent)' : row.state === 'succeeded' ? 'var(--ok)' : row.state === 'failed' ? 'var(--fail)' : row.state === 'skipped' ? 'var(--skip)' : 'var(--run)';
+    const label = row.job ? row.label : (LABELS[row.id] || row.id);
+    g.append(svg('text', { x: 16, y: y + 15, 'font-weight': row.job ? '600' : '400' }, label));
+    const w = Math.max(3, x(row.e) - x(row.s));
+    const bar = svg('rect', { class: 'bar', x: x(row.s), y: y + (row.job ? 4 : 6), width: w, height: row.job ? 14 : 10, rx: 2, fill: color, 'fill-opacity': row.state === 'skipped' ? 0.55 : 1 });
+    bar.append(svg('title', {}, `${label}\n${row.job ? '' : (STATE_CZ[row.state] || row.state) + ' · '}${row.s.toFixed(1)}–${row.e.toFixed(1)} s (${(row.e - row.s).toFixed(1)} s)${row.operator ? '\n' + row.operator : ''}`));
+    g.append(bar);
+    if (row.job) g.append(svg('text', { x: Math.min(x(row.e) + 6, W - 4), y: y + 15, 'text-anchor': x(row.e) + 60 > W ? 'end' : 'start', 'font-family': 'var(--font-mono)', 'font-size': 11 }, fmt(row.e - row.s)));
+  });
+}
+function renderTerm({ r, a }, i) {
+  document.getElementById('termTitle').textContent = `Co job ${a.jobId} vypsal na Karolině (běh ${i + 1})`;
+  const pre = document.getElementById('term'); pre.replaceChildren();
+  (r.hpc || 'Job zatím nic nevypsal.').trim().split('\n').forEach(line => {
+    const cls = /^(===|\[job\])/.test(line) ? 'h' : /Celkový součet|Job completed/.test(line) ? 'hl' : '';
+    pre.append(cls ? el('span', { class: cls }, line) : document.createTextNode(line), '\n');
+  });
+  const files = document.getElementById('files'); files.replaceChildren(el('div', { class: 'eyebrow' }, 'Výstupní dataset'));
+  r.outputs.forEach(o => {
+    files.append(el('h3', {}, o.title), el('div', { class: 'mono', style: 'color:var(--muted);overflow-wrap:anywhere' }, o.id));
+    (o.files || []).forEach(fl => {
+      const d = el('div', { class: 'file' });
+      d.append(el('span', { class: 'name' }, `${fl.name} · ${fl.size} B`));
+      if (fl.content) d.append(el('pre', {}, fl.content.trim()));
+      files.append(d);
+    });
+  });
+  if (!r.outputs.length) files.append(el('p', { class: 'note' }, 'Výstupní dataset ještě nevznikl.'));
+  document.getElementById('outId').textContent = r.outputs.length ? `result.txt, commit.txt · ${r.outputs[0].id.slice(0, 8)}…` : 'result.txt, commit.txt';
+}
+function renderRuns() {
+  const tb = document.querySelector('#runs tbody'); tb.replaceChildren();
+  RUNS.forEach(({ r, a }, i) => {
+    const tr = el('tr', { class: i === current ? 'sel' : '' });
+    const st = el('td'); st.append(el('span', { class: `pill ${r.run.state}` }, STATE_CZ[r.run.state] || r.run.state));
+    tr.append(el('td', { class: 'mono' }, `${i + 1} · ${r.run.id}`), el('td', {}, new Date(a.t0).toISOString().replace('T', ' ').slice(0, 19)), st,
+      el('td', {}, fmt(a.total)), el('td', {}, a.job ? fmt(a.job.e - a.job.s) : '–'), el('td', { class: 'mono' }, a.jobId), el('td', {}, a.sum));
+    tr.style.cursor = 'pointer'; tr.addEventListener('click', () => { current = i; render(); });
+    tb.append(tr);
+  });
+}
+function render() { const R = RUNS[current]; renderTabs(); renderStrip(R); renderFlow(R); renderGantt(R); renderTerm(R, current); renderRuns(); }
+render();
+</script>

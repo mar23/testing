@@ -1,36 +1,64 @@
+"""Vypočítá změny ve sloupci value mezi sousedními záznamy CSV."""
+
+import argparse
 import csv
-import re
+import sys
+from decimal import Decimal, InvalidOperation
+from pathlib import Path
 
-def sum_all_numbers_in_csv(file_path):
-    total_sum = 0.0
-    count = 0
-    
+
+def generate_differences(file_path, output_path):
+    """Zachová pořadí vstupu; rozdíl = aktuální value - předchozí value."""
+    records = []
+    with open(file_path, newline="", encoding="utf-8-sig") as csvfile:
+        reader = csv.DictReader(csvfile)
+        if not reader.fieldnames or not {"id", "value"}.issubset(reader.fieldnames):
+            raise ValueError("Vstupní CSV musí obsahovat sloupce id a value.")
+        for row_number, row in enumerate(reader, start=2):
+            try:
+                value = Decimal(row["value"])
+            except (InvalidOperation, TypeError, ValueError) as exc:
+                raise ValueError(f"Řádek {row_number}: value není platné číslo.") from exc
+            if not value.is_finite():
+                raise ValueError(f"Řádek {row_number}: value musí být konečné číslo.")
+            if not row["id"]:
+                raise ValueError(f"Řádek {row_number}: chybí id.")
+            records.append((row["id"], value))
+
+    output_path = Path(output_path)
+    if Path(file_path).resolve() == output_path.resolve():
+        raise ValueError("Výstupní soubor musí být odlišný od vstupního CSV.")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", newline="", encoding="utf-8") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["previous_id", "id", "previous_value", "value", "difference"])
+        for previous, current in zip(records, records[1:]):
+            writer.writerow([previous[0], current[0], previous[1], current[1],
+                             current[1] - previous[1]])
+
+    count = max(len(records) - 1, 0)
+    print(f"Zpracováno záznamů: {len(records)}")
+    print(f"Vygenerováno rozdílů: {count}")
+    if records:
+        print(f"Rozdíl poslední − první hodnota: {records[-1][1] - records[0][1]}")
+    print(f"Výstupní CSV: {output_path}")
+    return count
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("input", nargs="?", default="../datasets/benchmark_dataset.csv",
+                        help="Vstupní CSV se sloupci id,value.")
+    parser.add_argument("--output", default="output/differences.csv",
+                        help="Cesta k výstupnímu CSV (výchozí: output/differences.csv).")
+    args = parser.parse_args()
     try:
-        with open(file_path, mode='r', encoding='utf-8') as csvfile:
-            reader = csv.reader(csvfile)
-            for row_idx, row in enumerate(reader, 1):
-                for col_idx, cell in enumerate(row):
-                    # Hledání čísel (celých i desetických) v textu buňky
-                    numbers = re.findall(r"[-+]?\d*\.\d+|\d+", cell)
-                    for num in numbers:
-                        try:
-                            total_sum += float(num)
-                            count += 1
-                        except ValueError:
-                            continue
-                            
-        print(f"Zpracováno celkem {count} čísel.")
-        print(f"Celkový součet: {total_sum}")
-        return total_sum
+        generate_differences(args.input, args.output)
+    except (OSError, ValueError, csv.Error) as exc:
+        print(f"Chyba: {exc}", file=sys.stderr)
+        return 1
+    return 0
 
-    except FileNotFoundError:
-        print(f"Chyba: Soubor {file_path} nebyl nalezen. Nezapomeňte jej nejprve stáhnout z LEXIS.")
-        return None
-    except Exception as e:
-        print(f"Došlo k chybě při zpracování: {e}")
-        return None
 
 if __name__ == "__main__":
-    # Cesta k souboru v relativní cestě z src/ do datasets/
-    DATASET_FILE = "../datasets/benchmark_dataset.csv"
-    sum_all_numbers_in_csv(DATASET_FILE)
+    sys.exit(main())
