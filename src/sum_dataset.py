@@ -8,6 +8,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 
+
 def read_records(file_path):
     """Načte dvojice (id, value) ze vstupního CSV v pořadí souboru."""
     records = []
