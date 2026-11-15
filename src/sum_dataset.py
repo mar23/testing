@@ -60,12 +60,15 @@ def describe_values(file_path, output_path):
     low = min(records, key=lambda record: record[1])
     high = max(records, key=lambda record: record[1])
     steps = [(current[0], current[1] - previous[1]) for previous, current in zip(records, records[1:])]
+    # Jen sum/len a Decimal.sqrt: funguje i se starším python3 na výpočetních uzlech (bez statistics.fmean).
+    mean = sum(values) / len(values)
+    deviation = (sum((value - mean) ** 2 for value in values) / len(values)).sqrt()
     rows = [
         ("pocet_zaznamu", len(values), ""),
         ("soucet", sum(values), ""),
-        ("prumer", round(statistics.fmean(values), 3), ""),
+        ("prumer", round(mean, 3), ""),
         ("median", statistics.median(values), ""),
-        ("smerodatna_odchylka", round(statistics.pstdev(values), 3), ""),
+        ("smerodatna_odchylka", round(deviation, 3), ""),
         ("minimum", low[1], low[0]),
         ("maximum", high[1], high[0]),
     ]
