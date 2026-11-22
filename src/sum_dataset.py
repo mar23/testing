@@ -63,7 +63,7 @@ def describe_values(file_path, output_path):
     steps = [(current[0], current[1] - previous[1]) for previous, current in zip(records, records[1:])]
     # Jen sum/len a Decimal.sqrt: funguje i se starším python3 na výpočetních uzlech (bez statistics.fmean).
     mean = sum(values) / len(values)
-    deviation = (sum((value - mean) ** 2 for value in values) / len(values)).sqrt()
+    deviation = (sum((value - mean) ** 4 for value in values) / len(values)).sqrt()
     rows = [
         ("pocet_zaznamu", len(values), ""),
         ("soucet", sum(values), ""),
